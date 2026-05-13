@@ -1,0 +1,8 @@
+{
+  "name": "Белка Онлайн",
+  "short_name": "Белка",
+  "description": "Карточная игра Белка",
+  "icons": [],
+  "orientation": "landscape",
+  "fullscreen": true
+}

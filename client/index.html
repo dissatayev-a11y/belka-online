@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Белка Онлайн</title>
+
+<script src="https://yandex.ru/games/sdk/v2"></script>
+
+<style>
+body {
+  margin: 0;
+  background: radial-gradient(circle, #2e7d32, #1b5e20);
+  font-family: Arial;
+  overflow: hidden;
+}
+
+#game {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+.card {
+  width: 70px;
+  margin: 5px;
+  transition: transform 0.2s, opacity 0.3s;
+}
+
+.card:hover {
+  transform: translateY(-12px) scale(1.05);
+}
+
+#hand {
+  position: absolute;
+  bottom: 20px;
+  width: 100%;
+  text-align: center;
+}
+
+#table {
+  position: absolute;
+  top: 40%;
+  width: 100%;
+  text-align: center;
+}
+
+.table-card {
+  width: 80px;
+  margin: 10px;
+}
+
+.player {
+  position: absolute;
+  color: white;
+  font-size: 18px;
+  transition: all 0.2s;
+}
+
+.player.top    { top: 20px; width: 100%; text-align: center; }
+.player.left   { left: 20px; top: 50%; transform: translateY(-50%); }
+.player.right  { right: 20px; top: 50%; transform: translateY(-50%); }
+
+#result {
+  position: absolute;
+  top: 45%;
+  width: 100%;
+  text-align: center;
+  font-size: 28px;
+  color: white;
+  display: none;
+}
+
+#restart {
+  margin-top: 20px;
+  padding: 10px 20px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+#status {
+  position: absolute;
+  top: 50%;
+  width: 100%;
+  text-align: center;
+  color: #fff176;
+  font-size: 20px;
+  pointer-events: none;
+  display: none;
+}
+
+#trump {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+#scores {
+  position: absolute;
+  top: 35px;
+  right: 10px;
+  color: white;
+  font-size: 16px;
+}
+
+.hud-left {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: white;
+  line-height: 1.8;
+}
+
+.menu-buttons {
+  position: absolute;
+  top: 100px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu-buttons button {
+  padding: 8px 14px;
+  font-size: 15px;
+  cursor: pointer;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255,255,255,0.15);
+  color: white;
+}
+
+.menu-buttons button:hover {
+  background: rgba(255,255,255,0.3);
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+  <!-- HUD левый -->
+  <div class="hud-left">
+    <div id="rating">Рейтинг: 1000</div>
+    <div id="league">Лига: Серебро</div>
+    <div id="coins">Монеты: 0</div>
+  </div>
+
+  <!-- HUD правый -->
+  <div id="trump">Козырь: —</div>
+  <div id="scores">Счёт: 0 : 0</div>
+
+  <!-- Меню -->
+  <div class="menu-buttons">
+    <button onclick="quickGame()">⚡ Быстрая игра</button>
+    <button onclick="createRoom()">🏠 Создать комнату</button>
+    <button onclick="joinRoom()">🔑 Войти по коду</button>
+    <button id="rewardAd">🎬 +100 монет (реклама)</button>
+  </div>
+
+  <!-- Статус / уведомления -->
+  <div id="status"></div>
+
+  <!-- Игроки -->
+  <div class="player top">Игрок 2</div>
+  <div class="player left">Игрок 3</div>
+  <div class="player right">Игрок 4</div>
+
+  <!-- Стол и рука -->
+  <div id="table"></div>
+  <div id="hand"></div>
+
+  <!-- Результат -->
+  <div id="result">
+    <div id="resultText"></div>
+    <button id="restart">Играть ещё</button>
+  </div>
+
+</div>
+
+<script src="main.js"></script>
+
+</body>
+</html>
