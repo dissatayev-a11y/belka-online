@@ -67,8 +67,8 @@ function connect() {
   // При локальной разработке — localhost, в продакшене замените на wss://ваш-домен
   const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
   const wsUrl = isLocal
-    ? "ws://localhost:3000"
-    : "wss://" + location.hostname + ":3000";
+  ? "ws://localhost:3000"
+  : "wss://belka-online.onrender.com";
 
   socket = new WebSocket(wsUrl);
 
