@@ -2,6 +2,7 @@ const WebSocket = require("ws");
 
 const port = process.env.PORT || 3000;
 const wss = new WebSocket.Server({ port });
+console.log("Сервер запущен на порту", port);
 
 let rooms = [];
 let roomsByCode = {};
