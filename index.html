@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <title>Белка Онлайн</title>
 
-<script src="https://yandex.ru/games/sdk/v2"></script>
+<script src="https://yandex.ru/games/sdk/v2" onerror="window.YaGames=undefined"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
 <style>
 body {
@@ -24,6 +25,7 @@ body {
   width: 70px;
   margin: 5px;
   transition: transform 0.2s, opacity 0.3s;
+  border-radius: 4px;
 }
 
 .card:hover {
@@ -39,7 +41,7 @@ body {
 
 #table {
   position: absolute;
-  top: 40%;
+  top: 38%;
   width: 100%;
   text-align: center;
 }
@@ -52,7 +54,7 @@ body {
 .player {
   position: absolute;
   color: white;
-  font-size: 18px;
+  font-size: 16px;
   transition: all 0.2s;
 }
 
@@ -62,28 +64,35 @@ body {
 
 #result {
   position: absolute;
-  top: 45%;
+  top: 40%;
   width: 100%;
   text-align: center;
-  font-size: 28px;
+  font-size: 26px;
   color: white;
   display: none;
+  background: rgba(0,0,0,0.6);
+  padding: 20px 0;
 }
 
 #restart {
-  margin-top: 20px;
-  padding: 10px 20px;
-  font-size: 18px;
+  margin-top: 16px;
+  padding: 10px 24px;
+  font-size: 17px;
   cursor: pointer;
+  border-radius: 8px;
+  border: none;
+  background: #fff;
+  color: #1b5e20;
+  font-weight: bold;
 }
 
 #status {
   position: absolute;
-  top: 50%;
+  top: 48%;
   width: 100%;
   text-align: center;
   color: #fff176;
-  font-size: 20px;
+  font-size: 18px;
   pointer-events: none;
   display: none;
 }
@@ -99,10 +108,20 @@ body {
 
 #scores {
   position: absolute;
-  top: 35px;
+  top: 36px;
   right: 10px;
   color: white;
-  font-size: 16px;
+  font-size: 15px;
+}
+
+#roomCodeDisplay {
+  position: absolute;
+  top: 62px;
+  right: 10px;
+  color: #fff176;
+  font-size: 18px;
+  font-weight: bold;
+  display: none;
 }
 
 .hud-left {
@@ -111,35 +130,41 @@ body {
   left: 10px;
   color: white;
   line-height: 1.8;
+  font-size: 14px;
 }
 
 .menu-buttons {
   position: absolute;
-  top: 100px;
+  top: 90px;
   left: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 
 .menu-buttons button {
   padding: 8px 14px;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   border-radius: 6px;
   border: none;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.18);
   color: white;
+  text-align: left;
 }
 
 .menu-buttons button:hover {
-  background: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.32);
+}
+
+#startWithBots {
+  display: none;
+  background: rgba(255, 200, 0, 0.3) !important;
 }
 </style>
 </head>
 
 <body>
-
 <div id="game">
 
   <!-- HUD левый -->
@@ -152,16 +177,18 @@ body {
   <!-- HUD правый -->
   <div id="trump">Козырь: —</div>
   <div id="scores">Счёт: 0 : 0</div>
+  <div id="roomCodeDisplay"></div>
 
   <!-- Меню -->
   <div class="menu-buttons">
-    <button onclick="quickGame()">⚡ Быстрая игра</button>
+    <button onclick="quickGame()">⚡ Быстрая игра (с ботами)</button>
     <button onclick="createRoom()">🏠 Создать комнату</button>
     <button onclick="joinRoom()">🔑 Войти по коду</button>
+    <button id="startWithBots" onclick="startWithBots()">🤖 Начать с ботами</button>
     <button id="rewardAd">🎬 +100 монет (реклама)</button>
   </div>
 
-  <!-- Статус / уведомления -->
+  <!-- Статус -->
   <div id="status"></div>
 
   <!-- Игроки -->
@@ -182,6 +209,5 @@ body {
 </div>
 
 <script src="main.js"></script>
-
 </body>
 </html>
