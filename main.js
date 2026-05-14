@@ -3,7 +3,8 @@
 // =============================================
 
 const suitsMap = { "♣":"C", "♥":"H", "♠":"S", "♦":"D" };
-const suits = ["♣","♥","♠","♦"];
+const ranks = ["7","8","9","J","Q","10","A","K"];
+const ranksMap = { "7":"7","8":"8","9":"9","Д":"Q","К":"K","10":"10","Т":"A","В":"J" };
 const ranks = ["7","8","9","Д","К","10","Т","В"];
 const pointsMap = { "Т":11, "10":10, "К":4, "Д":3, "В":2 };
 const rankPower = { "7":1,"8":2,"9":3,"Д":4,"К":5,"10":6,"Т":7,"В":8 };
@@ -291,7 +292,7 @@ function endGame() {
 // =============================================
 
 function getCardImage(card) {
-  return `assets/cards/${card.rank}${suitsMap[card.suit]}.png`;
+  return `assets/cards/${ranksMap[card.rank]}${suitsMap[card.suit]}.png`;
 }
 
 function renderHand() {
