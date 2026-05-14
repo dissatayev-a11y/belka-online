@@ -3,8 +3,8 @@
 // =============================================
 
 const suitsMap = { "♣":"C", "♥":"H", "♠":"S", "♦":"D" };
-const ranks = ["7","8","9","J","Q","10","A","K"];
 const ranksMap = { "7":"7","8":"8","9":"9","Д":"Q","К":"K","10":"10","Т":"A","В":"J" };
+const suits = ["♣","♥","♠","♦"];
 const ranks = ["7","8","9","Д","К","10","Т","В"];
 const pointsMap = { "Т":11, "10":10, "К":4, "Д":3, "В":2 };
 const rankPower = { "7":1,"8":2,"9":3,"Д":4,"К":5,"10":6,"Т":7,"В":8 };
@@ -86,7 +86,6 @@ function startGame() {
   renderTrump();
   renderScores();
   renderPlayers();
-
   animateDeal();
 }
 
@@ -117,7 +116,6 @@ function playerPlay(cardIndex) {
   const card = state.hands[PLAYER][cardIndex];
   if (!card) return;
 
-  // Проверка масти
   if (!isValidPlay(PLAYER, card)) {
     showStatus("Нужно ходить в масть!");
     setTimeout(() => showStatus(""), 1500);
@@ -129,16 +127,12 @@ function playerPlay(cardIndex) {
 }
 
 function isValidPlay(playerIndex, card) {
-  if (state.table.length === 0) return true; // первый ход — любая карта
+  if (state.table.length === 0) return true;
 
   const leadSuit = state.table[0].card.suit;
   const hand = state.hands[playerIndex];
-
-  // Есть карты в масть (не козыри если масть не козырь)
   const hasSuited = hand.some(c => c.suit === leadSuit && !isTrump(c));
   if (hasSuited && card.suit !== leadSuit) return false;
-
-  // Если нет масти — можно козырь или любую
   return true;
 }
 
@@ -151,10 +145,8 @@ function playCard(playerIndex, card) {
   renderPlayers();
 
   if (state.table.length === 4) {
-    // Все походили — резолвим взятку
     setTimeout(resolveTrick, 1000);
   } else {
-    // Следующий ход — бот?
     if (state.turn !== PLAYER) {
       setTimeout(botPlay, 700);
     }
@@ -171,11 +163,9 @@ function resolveTrick() {
   let pts = 0;
   state.table.forEach(e => pts += pointsMap[e.card.rank] || 0);
   state.scores[winner.playerIndex % 2] += pts;
-
   state.trickWinner = winner.playerIndex;
   renderScores();
 
-  // Показываем кто забрал
   showStatus(BOT_NAMES[winner.playerIndex] + " забирает взятку (+" + pts + " очков)");
 
   setTimeout(() => {
@@ -211,42 +201,32 @@ function botPlay() {
   if (!hand || hand.length === 0) return;
 
   const card = chooseBotCard(botIndex, hand);
-
   state.hands[botIndex] = hand.filter(
     c => !(c.rank === card.rank && c.suit === card.suit)
   );
-
   playCard(botIndex, card);
 }
 
 function chooseBotCard(botIndex, hand) {
   if (state.table.length === 0) {
-    // Первый ход — играем некозырную карту с наименьшим значением
     const nonTrump = hand.filter(c => !isTrump(c));
     const pool = nonTrump.length > 0 ? nonTrump : hand;
     return pool.sort((a,b) => rankPower[a.rank] - rankPower[b.rank])[0];
   }
 
   const leadSuit = state.table[0].card.suit;
-
-  // Карты в масть
   const suited = hand.filter(c => c.suit === leadSuit && !isTrump(c));
-  // Козыри
   const trumpCards = hand.filter(c => isTrump(c));
-  // Остальные
   const others = hand.filter(c => !isTrump(c) && c.suit !== leadSuit);
 
-  // Текущий победитель взятки
   const currentWinner = state.table.reduce((best, e) =>
     compare(e.card, best.card, leadSuit) > 0 ? e : best, state.table[0]);
   const partnerWinning = currentWinner.playerIndex % 2 === botIndex % 2;
 
   if (suited.length > 0) {
     if (partnerWinning) {
-      // Партнёр выигрывает — скидываем наименьшую
       return suited.sort((a,b) => rankPower[a.rank] - rankPower[b.rank])[0];
     } else {
-      // Пробуем перебить
       const winning = suited.filter(c => compare(c, currentWinner.card, leadSuit) > 0);
       if (winning.length > 0) return winning.sort((a,b) => rankPower[a.rank] - rankPower[b.rank])[0];
       return suited.sort((a,b) => rankPower[a.rank] - rankPower[b.rank])[0];
@@ -254,11 +234,9 @@ function chooseBotCard(botIndex, hand) {
   }
 
   if (!partnerWinning && trumpCards.length > 0) {
-    // Козыряем если партнёр не выигрывает
     return trumpCards.sort((a,b) => rankPower[a.rank] - rankPower[b.rank])[0];
   }
 
-  // Скидываем наименьшую не козырную
   if (others.length > 0) return others.sort((a,b) => rankPower[a.rank] - rankPower[b.rank])[0];
   return trumpCards.sort((a,b) => rankPower[a.rank] - rankPower[b.rank])[0];
 }
@@ -269,7 +247,6 @@ function chooseBotCard(botIndex, hand) {
 
 function endGame() {
   showAd();
-
   const myScore = state.scores[0];
   const botScore = state.scores[1];
   const win = myScore > botScore;
@@ -284,7 +261,7 @@ function endGame() {
   const text = document.getElementById("resultText");
   text.innerText = (win ? "🏆 Победа! " : "😔 Поражение. ") +
     `Ваши: ${myScore} | Боты: ${botScore}`;
-  div.style.display = "block";
+  div.style.display = "flex";
 }
 
 // =============================================
@@ -320,7 +297,6 @@ function renderHand() {
 function renderTable() {
   const div = document.getElementById("table");
   div.innerHTML = "";
-
   if (!state) return;
 
   state.table.forEach(e => {
@@ -349,27 +325,18 @@ function renderTable() {
 }
 
 function renderPlayers() {
-  const els = {
-    top:   document.querySelector(".player.top"),
-    left:  document.querySelector(".player.left"),
-    right: document.querySelector(".player.right"),
-    me:    document.querySelector(".player.me")
-  };
-
-  // Позиции: 0=я (низ), 1=правый, 2=верх, 3=левый
   const positions = [
-    { el: els.me,    index: 0 },
-    { el: els.right, index: 1 },
-    { el: els.top,   index: 2 },
-    { el: els.left,  index: 3 }
+    { el: document.querySelector(".player.me"),    index: 0 },
+    { el: document.querySelector(".player.right"), index: 1 },
+    { el: document.querySelector(".player.top"),   index: 2 },
+    { el: document.querySelector(".player.left"),  index: 3 }
   ];
 
   positions.forEach(({ el, index }) => {
     if (!el) return;
     const cards = state ? state.hands[index].length : 0;
     const isActive = state && state.turn === index && !state.gameOver;
-    const isTrumpInfo = state ? ` ` : "";
-    el.innerText = BOT_NAMES[index] + (state && state.started !== false ? ` (${cards})` : "");
+    el.innerText = BOT_NAMES[index] + (state ? ` (${cards})` : "");
     el.style.color = isActive ? "#FFD700" : "white";
     el.style.fontWeight = isActive ? "bold" : "normal";
     el.style.textShadow = isActive ? "0 0 8px #FFD700" : "none";
@@ -386,9 +353,7 @@ function renderTrump() {
 
 function renderScores() {
   const el = document.getElementById("scores");
-  if (el && state) {
-    el.innerText = `Вы: ${state.scores[0]} | Боты: ${state.scores[1]}`;
-  }
+  if (el && state) el.innerText = `Вы: ${state.scores[0]} | Боты: ${state.scores[1]}`;
 }
 
 function showStatus(msg) {
