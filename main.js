@@ -2,34 +2,40 @@
 // БЕЛКА — полная версия с правилами
 // =============================================
 
-// Масти
 const suits = ["♣","♥","♠","♦"];
 const suitsMap = { "♣":"C", "♥":"H", "♠":"S", "♦":"D" };
 const ranksMap = { "7":"7","8":"8","9":"9","Д":"Q","К":"K","10":"10","Т":"A","В":"J" };
-
-// Ранги (В = валет — всегда козырь)
 const ranks = ["7","8","9","Д","К","10","Т","В"];
 const pointsMap = { "Т":11, "10":10, "К":4, "Д":3, "В":2 };
-
-// Сила карт в масти (без учёта козыря)
 const rankPower = { "7":1,"8":2,"9":3,"Д":4,"К":5,"10":6,"Т":7,"В":8 };
 
-// Позиции: 0=я, 1=правый бот, 2=верхний бот, 3=левый бот
+// Позиции: 0=я(низ), 1=левый, 2=верх, 3=правый
+// По часовой стрелке: 0 → 3(право) → 2(верх) → 1(лево) → 0
+// Но у нас индексы: 0=низ, 1=лево, 2=верх, 3=право
+// Порядок хода по часовой: 0→3→2→1→0
 const PLAYER = 0;
-const BOT_NAMES = ["Вы", "Бот Миша", "Бот Даша", "Бот Саша"];
+const BOT_NAMES = ["Вы", "Бот Саша", "Бот Даша", "Бот Миша"];
+// 0=низ(я), 1=лево(Саша), 2=верх(Даша), 3=право(Миша)
+// По часовой: низ→право→верх→лево → 0→3→2→1
 
-// Команды: 0 и 2 против 1 и 3
-// Козырная масть по позиции держателя JC:
-// держатель JC → козырь ♣
-// напротив (партнёр) → ♠
-// справа от держателя → ♦
-// слева от держателя → ♥
-const TRUMP_BY_POSITION = ["♣","♦","♠","♥"]; // индекс = смещение от держателя JC
+// Следующий ход по часовой стрелке
+function nextTurn(current) {
+  // 0→3→2→1→0
+  const order = [3, 1, 0, 2]; // order[i] = следующий после i
+  return order[current];
+}
+
+// Команды: (0,2) vs (1,3)
+// Козырь по держателю JC:
+// держатель JC → ♣, слева от него → ♥, напротив → ♠, справа → ♦
+// По часовой: держатель=♣, следующий(право)=♦, напротив=♠, предыдущий(лево)=♥
+const TRUMP_FOR_OFFSET = { 0:"♣", 3:"♦", 2:"♠", 1:"♥" };
+// offset = (playerIndex - jcHolder + 4) % 4
 
 let state = null;
 let dealing = false;
-let gameScore = [0, 0]; // очки всей игры [команда 0-2, команда 1-3]
-let jcHolderTeam = -1;  // команда, у которой JC в текущей партии
+let gameScore = [0, 0];
+let jcHolderGlobal = -1; // кто держит JC — фиксируется на первую партию и далее
 
 let ysdk = null;
 let playerData = { rating: 1000, coins: 0, lastLogin: null, skin: "default" };
@@ -40,22 +46,16 @@ let playerData = { rating: 1000, coins: 0, lastLogin: null, skin: "default" };
 
 const SKINS = {
   table: [
-    { id: "default",  name: "Классик",   price: 0,    color: "radial-gradient(ellipse at center, #2e7d32 0%, #1a4a1e 60%, #0d2b10 100%)" },
-    { id: "blue",     name: "Океан",     price: 100,  color: "radial-gradient(ellipse at center, #1565c0 0%, #0d3b6e 60%, #071f3a 100%)" },
-    { id: "purple",   name: "Ночь",      price: 150,  color: "radial-gradient(ellipse at center, #4a148c 0%, #2a0a5e 60%, #120030 100%)" },
-    { id: "dark",     name: "Бархат",    price: 200,  color: "radial-gradient(ellipse at center, #212121 0%, #111111 60%, #000000 100%)" },
-    { id: "gold",     name: "Золото",    price: 300,  color: "radial-gradient(ellipse at center, #5d4037 0%, #3e2723 60%, #1c0f0a 100%)" },
-  ],
-  cardBack: [
-    { id: "default",  name: "Синяя",     price: 0 },
-    { id: "red",      name: "Красная",   price: 100 },
-    { id: "gold",     name: "Золотая",   price: 250 },
+    { id:"default", name:"Классик", price:0,   color:"radial-gradient(ellipse at center,#2e7d32 0%,#1a4a1e 60%,#0d2b10 100%)" },
+    { id:"blue",    name:"Океан",   price:100,  color:"radial-gradient(ellipse at center,#1565c0 0%,#0d3b6e 60%,#071f3a 100%)" },
+    { id:"purple",  name:"Ночь",    price:150,  color:"radial-gradient(ellipse at center,#4a148c 0%,#2a0a5e 60%,#120030 100%)" },
+    { id:"dark",    name:"Бархат",  price:200,  color:"radial-gradient(ellipse at center,#212121 0%,#111111 60%,#000000 100%)" },
+    { id:"gold",    name:"Золото",  price:300,  color:"radial-gradient(ellipse at center,#5d4037 0%,#3e2723 60%,#1c0f0a 100%)" },
   ]
 };
 
 function applySkin() {
-  const skinId = playerData.skin || "default";
-  const skin = SKINS.table.find(s => s.id === skinId) || SKINS.table[0];
+  const skin = SKINS.table.find(s => s.id === (playerData.skin||"default")) || SKINS.table[0];
   document.body.style.background = skin.color;
 }
 
@@ -68,36 +68,28 @@ if (typeof YaGames !== "undefined") {
     ysdk = sdk;
     sdk.getPlayer().then(p => p.getData()).then(data => {
       if (data && Object.keys(data).length > 0) playerData = { ...playerData, ...data };
-      applySkin();
-      checkDailyBonus();
-      updateHUD();
+      applySkin(); checkDailyBonus(); updateHUD();
     }).catch(() => { checkDailyBonus(); updateHUD(); });
   }).catch(() => { checkDailyBonus(); updateHUD(); });
 } else {
-  checkDailyBonus();
-  updateHUD();
+  checkDailyBonus(); updateHUD();
 }
 
 // =============================================
 // КОЗЫРЬ И ВАЛЕТЫ
 // =============================================
 
-// Валет всегда козырь независимо от масти
 function isJack(card) { return card.rank === "В"; }
-
-// Крестовый валет
-function isJC(card) { return card.rank === "В" && card.suit === "♣"; }
+function isJC(card)   { return card.rank === "В" && card.suit === "♣"; }
 
 function isTrump(card, trump) {
   return isJack(card) || card.suit === trump;
 }
 
-// Сила козырной карты: JC > JD > JS > JH > A > 10 > K > Q > 9 > 8 > 7
 function trumpPower(card) {
   if (card.rank === "В") {
-    // Валеты: JC=40, JS=39, JD=38, JH=37 (по правилам Белки)
-    const jackOrder = { "♣":40, "♠":39, "♦":38, "♥":37 };
-    return jackOrder[card.suit] || 36;
+    const j = { "♣":40, "♠":39, "♦":38, "♥":37 };
+    return j[card.suit] || 36;
   }
   return rankPower[card.rank];
 }
@@ -112,51 +104,44 @@ function compareCards(a, b, leadSuit, trump) {
   return cardPower(a, leadSuit, trump) - cardPower(b, leadSuit, trump);
 }
 
-// Определить козырь по держателю JC
-function determineTrump(jcHolder) {
-  // jcHolder — индекс игрока (0-3)
-  // 0 смещение = ♣, +1 = ♦, +2 = ♠, +3 = ♥
-  return TRUMP_BY_POSITION[jcHolder % 4];
+// Козырь для игрока по смещению от держателя JC
+function trumpForPlayer(playerIndex, jcHolder) {
+  const offset = (playerIndex - jcHolder + 4) % 4;
+  return TRUMP_FOR_OFFSET[offset];
 }
 
 // =============================================
-// КОЛОДА И РАЗДАЧА
+// КОЛОДА
 // =============================================
 
 function createDeck() {
   let deck = [];
-  suits.forEach(s => ranks.forEach(r => deck.push({ suit: s, rank: r })));
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+  suits.forEach(s => ranks.forEach(r => deck.push({ suit:s, rank:r })));
+  for (let i = deck.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i+1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
 }
 
 // =============================================
-// СОРТИРОВКА РУКИ
+// СОРТИРОВКА: козыри справа налево (сильнейший слева), масти справа налево
 // =============================================
 
 function sortHand(hand, trump) {
-  return [...hand].sort((a, b) => {
+  const sorted = [...hand].sort((a, b) => {
     const aT = isTrump(a, trump);
     const bT = isTrump(b, trump);
-
-    // Козыри первыми
     if (aT && !bT) return -1;
     if (!aT && bT) return 1;
-
-    if (aT && bT) {
-      // Среди козырей: валеты первыми по силе, потом остальные по убыванию
-      return trumpPower(b) - trumpPower(a);
-    }
-
-    // Некозырные: группируем по масти, внутри по убыванию очков
-    if (a.suit !== b.suit) {
-      return a.suit.localeCompare(b.suit);
-    }
+    if (aT && bT) return trumpPower(b) - trumpPower(a); // сильнейший первый
+    // некозырные: сортируем по масти, внутри по убыванию
+    if (a.suit !== b.suit) return suits.indexOf(a.suit) - suits.indexOf(b.suit);
     return rankPower[b.rank] - rankPower[a.rank];
   });
+  // Переворачиваем: отображение идёт справа налево
+  // (сильная карта слева = первый в массиве = leftmost при flex-direction:row-reverse)
+  return sorted;
 }
 
 // =============================================
@@ -166,23 +151,26 @@ function sortHand(hand, trump) {
 function startGame() {
   const deck = createDeck();
   const hands = [
-    deck.slice(0, 8),
-    deck.slice(8, 16),
-    deck.slice(16, 24),
-    deck.slice(24, 32)
+    deck.slice(0,8), deck.slice(8,16), deck.slice(16,24), deck.slice(24,32)
   ];
 
-  // Найти держателя JC
+  // Первая партия: козырь ♣, JC holder = тот у кого JC
+  // Последующие: козырь определяется по зафиксированному держателю JC
   let jcHolder = -1;
   for (let i = 0; i < 4; i++) {
     if (hands[i].some(c => isJC(c))) { jcHolder = i; break; }
   }
-  if (jcHolder === -1) jcHolder = 0; // fallback
+  if (jcHolder === -1) jcHolder = 0;
 
-  const trump = determineTrump(jcHolder);
-  jcHolderTeam = jcHolder % 2; // команда держателя JC
+  // Первая партия игры: фиксируем держателя JC
+  if (gameScore[0] === 0 && gameScore[1] === 0 && jcHolderGlobal === -1) {
+    jcHolderGlobal = jcHolder;
+  }
 
-  // Сортируем руки
+  // Козырь определяется по ТЕКУЩЕМУ держателю JC в этой раздаче
+  // В первой партии козырь всегда ♣ (держатель JC имеет ♣)
+  const trump = trumpForPlayer(jcHolder, jcHolder); // всегда ♣ для держателя
+
   for (let i = 0; i < 4; i++) {
     hands[i] = sortHand(hands[i], trump);
   }
@@ -192,11 +180,11 @@ function startGame() {
     jcHolder,
     hands,
     table: [],
-    turn: 0,
-    scores: [0, 0],   // очки взяток [команда 0-2, команда 1-3]
+    turn: 0,        // всегда начинает игрок 0 (можно менять)
+    scores: [0, 0],
+    tricks: [0, 0], // количество взяток [команда 0-2, команда 1-3]
     gameOver: false,
     roundOver: false,
-    trickWinner: null
   };
 
   document.getElementById("result").style.display = "none";
@@ -218,7 +206,6 @@ function animateDeal() {
       clearInterval(interval);
       dealing = false;
       renderHand();
-      // Если первый ход — бот
       if (state.turn !== PLAYER) setTimeout(botPlay, 800);
       return;
     }
@@ -258,11 +245,9 @@ function isValidPlay(playerIndex, card) {
   const hand = state.hands[playerIndex];
 
   if (leadIsTrump) {
-    // Ведут козырем — нужно козырять
     const hasTrump = hand.some(c => isTrump(c, state.trump));
     if (hasTrump && !isTrump(card, state.trump)) return false;
   } else {
-    // Ведут мастью
     const leadSuit = leadCard.suit;
     const hasSuited = hand.some(c => c.suit === leadSuit && !isTrump(c, state.trump));
     if (hasSuited && (card.suit !== leadSuit || isTrump(card, state.trump))) return false;
@@ -272,7 +257,7 @@ function isValidPlay(playerIndex, card) {
 
 function playCard(playerIndex, card) {
   state.table.push({ playerIndex, card });
-  state.turn = (state.turn + 1) % 4;
+  state.turn = nextTurn(playerIndex); // по часовой стрелке
 
   renderTable();
   renderHand();
@@ -301,7 +286,7 @@ function resolveTrick() {
 
   const winTeam = winner.playerIndex % 2;
   state.scores[winTeam] += pts;
-  state.trickWinner = winner.playerIndex;
+  state.tricks[winTeam]++;
 
   renderScores();
   showStatus(BOT_NAMES[winner.playerIndex] + " берёт взятку (+" + pts + ")");
@@ -309,7 +294,6 @@ function resolveTrick() {
   setTimeout(() => {
     state.table = [];
     state.turn = winner.playerIndex;
-    state.trickWinner = null;
     showStatus("");
     renderTable();
     renderPlayers();
@@ -325,49 +309,68 @@ function resolveTrick() {
 }
 
 // =============================================
-// КОНЕЦ ПАРТИИ — ОЧКИ
+// КОНЕЦ ПАРТИИ
 // =============================================
 
 function endRound() {
   showAd();
 
-  const s0 = state.scores[0]; // очки команды игрока (0+2)
-  const s1 = state.scores[1]; // очки команды ботов (1+3)
+  const s0 = state.scores[0];
+  const s1 = state.scores[1];
+  const t0 = state.tricks[0]; // взятки команды 0
+  const t1 = state.tricks[1]; // взятки команды 1
 
-  // Команда JC holder
-  const jcTeam = jcHolderTeam; // 0 или 1
-  const otherTeam = 1 - jcTeam;
+  const jcTeam = state.jcHolder % 2; // команда держателя JC
+  const jcTeamScore   = jcTeam === 0 ? s0 : s1;
+  const otherTeamScore= jcTeam === 0 ? s1 : s0;
 
-  let points0 = 0; // очки партии для команды 0
-  let points1 = 0;
-
-  const jcTeamScore  = jcTeam === 0 ? s0 : s1;
-  const otherScore   = jcTeam === 0 ? s1 : s0;
-
+  let points0 = 0, points1 = 0;
   let roundMsg = "";
 
+  // Проверка: кто-то забрал все взятки
+  if (t0 === 8) {
+    // Команда 0 забрала все взятки
+    gameScore[0] = 12;
+    gameScore[1] = 0;
+    roundMsg = "🏆 Вы забрали все взятки! Мгновенная победа!";
+    renderGameScore();
+    showRoundResult(roundMsg, `Счёт игры: Вы 12 : 0 Боты`);
+    setTimeout(endGame, 2500);
+    return;
+  } else if (t1 === 8) {
+    // Команда 1 забрала все взятки
+    gameScore[0] = 0;
+    gameScore[1] = 12;
+    roundMsg = "😔 Боты забрали все взятки! Они побеждают!";
+    renderGameScore();
+    showRoundResult(roundMsg, `Счёт игры: Вы 0 : 12 Боты`);
+    setTimeout(endGame, 2500);
+    return;
+  }
+
+  // Обычный подсчёт
   if (jcTeam === 1) {
-    // JC у соперников (команда 1)
+    // JC у ботов
     if (jcTeamScore < 30) {
-      // Соперники набрали < 30 — наша команда получает 3 очка
       points0 = 3; points1 = 0;
-      roundMsg = "Боты набрали меньше 30! Вы получаете 3 очка!";
+      roundMsg = "Боты набрали меньше 30! +3 очка вам!";
     } else if (jcTeamScore >= 60) {
       points0 = 0; points1 = 2;
       roundMsg = "Боты победили в партии. +2 очка ботам.";
     } else {
       points0 = 2; points1 = 0;
-      roundMsg = "Вы победили в партии! +2 очка вам!";
+      roundMsg = "Вы победили в партии! +2 очка!";
     }
   } else {
-    // JC у нашей команды (команда 0)
-    if (otherScore > 30) {
-      // Соперники набрали > 30 — мы получаем только 1 очко
-      points0 = 1; points1 = 0;
-      roundMsg = "Соперники набрали больше 30. Вы получаете только 1 очко.";
-    } else if (s0 >= 60) {
-      points0 = 2; points1 = 0;
-      roundMsg = "Вы победили в партии! +2 очка!";
+    // JC у нашей команды
+    if (s0 >= 60) {
+      if (otherTeamScore > 30) {
+        points0 = 1; points1 = 0;
+        roundMsg = "Победа, но боты набрали >30. Только +1 очко.";
+      } else {
+        points0 = 2; points1 = 0;
+        roundMsg = "Вы победили в партии! +2 очка!";
+      }
     } else {
       points0 = 0; points1 = 2;
       roundMsg = "Боты победили в партии. +2 очка ботам.";
@@ -377,27 +380,29 @@ function endRound() {
   gameScore[0] += points0;
   gameScore[1] += points1;
 
-  renderGameScore();
-
-  // Показать результат партии
-  const div = document.getElementById("roundResult");
-  const txt = document.getElementById("roundResultText");
-  const sc  = document.getElementById("roundScoreText");
-  txt.innerText = roundMsg;
-  sc.innerText  = `Счёт игры: Вы ${gameScore[0]} : ${gameScore[1]} Боты`;
-  div.style.display = "flex";
-
-  // Обновить рейтинг и монеты
-  const weWon = points0 > points1;
-  playerData.rating += weWon ? 10 : -5;
-  playerData.coins  += weWon ? 8  :  3;
+  playerData.rating += points0 > points1 ? 10 : -5;
+  playerData.coins  += points0 > points1 ? 8  :  3;
   if (playerData.rating < 0) playerData.rating = 0;
   saveData();
 
-  // Проверить победу в игре
+  renderGameScore();
+  showRoundResult(roundMsg, `Счёт игры: Вы ${gameScore[0]} : ${gameScore[1]} Боты`);
+
+  // Автоматически начинаем следующую партию через 3 секунды
   if (gameScore[0] >= 12 || gameScore[1] >= 12) {
-    setTimeout(endGame, 2000);
+    setTimeout(endGame, 3000);
+  } else {
+    setTimeout(() => {
+      document.getElementById("roundResult").style.display = "none";
+      startGame();
+    }, 3000);
   }
+}
+
+function showRoundResult(title, sub) {
+  document.getElementById("roundResultText").innerText = title;
+  document.getElementById("roundScoreText").innerText = sub;
+  document.getElementById("roundResult").style.display = "flex";
 }
 
 function endGame() {
@@ -407,12 +412,12 @@ function endGame() {
   if (playerData.rating < 0) playerData.rating = 0;
   saveData();
 
+  document.getElementById("roundResult").style.display = "none";
   const div  = document.getElementById("result");
   const text = document.getElementById("resultText");
   text.innerText = (weWon ? "🏆 Победа в игре!" : "😔 Поражение в игре.") +
     `\nСчёт: Вы ${gameScore[0]} : ${gameScore[1]} Боты`;
   div.style.display = "flex";
-  gameScore = [0, 0];
 }
 
 // =============================================
@@ -436,36 +441,26 @@ function botPlay() {
 
 function chooseBotCard(botIndex, hand) {
   const trump = state.trump;
-
-  if (state.table.length === 0) {
-    // Первый ход — некозырную слабую
-    const nonTrump = hand.filter(c => !isTrump(c, trump));
-    const pool = nonTrump.length > 0 ? nonTrump : hand;
-    return pool[pool.length - 1]; // рука отсортирована по убыванию силы → берём последнюю (слабую)
-  }
-
-  const leadCard = state.table[0].card;
-  const leadSuit = leadCard.suit;
-  const leadIsTrump = isTrump(leadCard, trump);
-
-  // Валидные карты
   const valid = hand.filter(c => isValidPlay(botIndex, c));
 
-  // Текущий победитель
+  if (state.table.length === 0) {
+    // Первый ход — слабую некозырную
+    const nonTrump = valid.filter(c => !isTrump(c, trump));
+    const pool = nonTrump.length > 0 ? nonTrump : valid;
+    return pool[pool.length - 1];
+  }
+
+  const leadSuit = state.table[0].card.suit;
   const currentWinner = state.table.reduce((best, e) =>
     compareCards(e.card, best.card, leadSuit, trump) > 0 ? e : best, state.table[0]);
   const partnerWinning = currentWinner.playerIndex % 2 === botIndex % 2;
 
   if (partnerWinning) {
-    // Партнёр выигрывает — скидываем слабую
-    return valid[valid.length - 1];
+    return valid[valid.length - 1]; // скидываем слабую
   }
 
-  // Пробуем перебить
   const winning = valid.filter(c => compareCards(c, currentWinner.card, leadSuit, trump) > 0);
-  if (winning.length > 0) return winning[winning.length - 1]; // минимально перебиваем
-
-  // Не можем перебить — скидываем слабую
+  if (winning.length > 0) return winning[winning.length - 1];
   return valid[valid.length - 1];
 }
 
@@ -495,6 +490,8 @@ function renderHand() {
   const canPlay = state && !dealing && !state.gameOver && !state.roundOver &&
                   state.turn === PLAYER && state.table.length < 4;
 
+  // Отображаем справа налево: последний элемент массива — крайний левый на экране
+  // Используем flex-direction: row-reverse в CSS
   hand.forEach((card, i) => {
     const img = document.createElement("img");
     img.src = getCardImage(card);
@@ -510,13 +507,13 @@ function renderHand() {
   });
 }
 
-// Карты на столе — ромбом: верх, право, низ, лево
-// Порядок хода: 0(низ), 1(право), 2(верх), 3(лево)
+// Позиции карт на столе — ромбом
+// 0=низ(я), 1=лево, 2=верх, 3=право
 const TABLE_POSITIONS = [
-  { top: "55%",  left: "50%", transform: "translate(-50%, 0)" },      // 0 = я (низ)
-  { top: "35%",  left: "65%", transform: "translate(0, -50%)" },      // 1 = правый
-  { top: "15%",  left: "50%", transform: "translate(-50%, 0)" },      // 2 = верх
-  { top: "35%",  left: "35%", transform: "translate(-100%, -50%)" },  // 3 = левый
+  { top:"60%", left:"50%", transform:"translate(-50%, 0)" },      // 0 = я
+  { top:"38%", left:"32%", transform:"translate(-100%, -50%)" },  // 1 = лево
+  { top:"18%", left:"50%", transform:"translate(-50%, 0)" },      // 2 = верх
+  { top:"38%", left:"68%", transform:"translate(0, -50%)" },      // 3 = право
 ];
 
 function renderTable() {
@@ -527,7 +524,6 @@ function renderTable() {
 
   state.table.forEach(e => {
     const pos = TABLE_POSITIONS[e.playerIndex];
-
     const wrapper = document.createElement("div");
     wrapper.style.position = "absolute";
     wrapper.style.top = pos.top;
@@ -556,19 +552,20 @@ function renderTable() {
 }
 
 function renderPlayers() {
+  // 0=низ(я), 1=лево, 2=верх, 3=право
   const positions = [
     { el: document.querySelector(".player.me"),    index: 0 },
-    { el: document.querySelector(".player.right"), index: 1 },
+    { el: document.querySelector(".player.left"),  index: 1 },
     { el: document.querySelector(".player.top"),   index: 2 },
-    { el: document.querySelector(".player.left"),  index: 3 }
+    { el: document.querySelector(".player.right"), index: 3 },
   ];
 
   positions.forEach(({ el, index }) => {
     if (!el) return;
     const cards = state ? state.hands[index].length : 0;
     const isActive = state && state.turn === index && !state.gameOver && !state.roundOver;
-    const isJCHolder = state && state.jcHolder === index;
-    el.innerText = BOT_NAMES[index] + (state ? ` (${cards})` : "") + (isJCHolder ? " ♣J" : "");
+    const isJCH = state && state.jcHolder === index;
+    el.innerText = BOT_NAMES[index] + (state ? ` (${cards})` : "") + (isJCH ? " ♣J" : "");
     el.style.color = isActive ? "#FFD700" : "white";
     el.style.fontWeight = isActive ? "bold" : "normal";
     el.style.textShadow = isActive ? "0 0 8px #FFD700" : "none";
@@ -578,20 +575,18 @@ function renderPlayers() {
 function renderTrump() {
   const el = document.getElementById("trump");
   if (!el || !state) return;
-  const suitColors = { "♥":"#ff5555", "♦":"#ff5555", "♣":"#aaffaa", "♠":"#aaaaff" };
-  el.innerHTML = `Козырь: <span style="color:${suitColors[state.trump]||'#fff'};font-size:22px">${state.trump}</span>`;
+  const c = { "♥":"#ff5555","♦":"#ff5555","♣":"#aaffaa","♠":"#aaaaff" };
+  el.innerHTML = `Козырь: <span style="color:${c[state.trump]||'#fff'};font-size:22px">${state.trump}</span>`;
 }
 
 function renderScores() {
   const el = document.getElementById("scores");
-  if (el && state) el.innerText = `Очки партии — Вы: ${state.scores[0]} | Боты: ${state.scores[1]}`;
+  if (el && state) el.innerText = `Партия — Вы: ${state.scores[0]} | Боты: ${state.scores[1]}`;
 }
 
 function renderGameScore() {
   const el = document.getElementById("gameScore");
-  if (el) {
-    el.innerHTML = `Игра: <b>${gameScore[0]}</b> : <b>${gameScore[1]}</b> (до 12)`;
-  }
+  if (el) el.innerHTML = `Игра: <b>${gameScore[0]}</b> : <b>${gameScore[1]}</b> (до 12)`;
 }
 
 function showStatus(msg) {
@@ -605,29 +600,19 @@ function showStatus(msg) {
 // МАГАЗИН
 // =============================================
 
-function openShop() {
-  document.getElementById("shop").style.display = "flex";
-}
-
-function closeShop() {
-  document.getElementById("shop").style.display = "none";
-}
+function openShop()  { renderShop(); document.getElementById("shop").style.display = "flex"; }
+function closeShop() { document.getElementById("shop").style.display = "none"; }
 
 function buySkin(skinId) {
   const skin = SKINS.table.find(s => s.id === skinId);
   if (!skin) return;
   if (skin.price > 0 && playerData.coins < skin.price) {
-    showStatus("Не хватает монет!");
-    setTimeout(() => showStatus(""), 2000);
-    return;
+    showStatus("Не хватает монет!"); setTimeout(() => showStatus(""), 2000); return;
   }
   playerData.coins -= skin.price;
   playerData.skin = skinId;
-  saveData();
-  applySkin();
-  renderShop();
-  showStatus("Скин применён!");
-  setTimeout(() => showStatus(""), 2000);
+  saveData(); applySkin(); renderShop();
+  showStatus("Скин применён!"); setTimeout(() => showStatus(""), 2000);
 }
 
 function renderShop() {
@@ -636,8 +621,8 @@ function renderShop() {
   container.innerHTML = "";
 
   SKINS.table.forEach(skin => {
-    const owned = skin.price === 0 || (playerData.ownedSkins || []).includes(skin.id) || playerData.skin === skin.id;
     const active = playerData.skin === skin.id;
+    const canAfford = playerData.coins >= skin.price;
 
     const item = document.createElement("div");
     item.className = "shop-item";
@@ -651,21 +636,16 @@ function renderShop() {
     btn.className = "btn shop-btn";
 
     if (active) {
-      btn.innerText = "✓ Выбран";
-      btn.disabled = true;
+      btn.innerText = "✓ Выбран"; btn.disabled = true;
       btn.style.background = "rgba(100,200,100,0.5)";
-    } else if (playerData.coins >= skin.price || skin.price === 0) {
+    } else if (canAfford || skin.price === 0) {
       btn.innerText = skin.price === 0 ? "Выбрать" : `${skin.price} 💰`;
       btn.onclick = () => buySkin(skin.id);
     } else {
-      btn.innerText = `${skin.price} 💰`;
-      btn.disabled = true;
-      btn.style.opacity = "0.5";
+      btn.innerText = `${skin.price} 💰`; btn.disabled = true; btn.style.opacity = "0.5";
     }
 
-    item.appendChild(name);
-    item.appendChild(btn);
-    container.appendChild(item);
+    item.appendChild(name); item.appendChild(btn); container.appendChild(item);
   });
 }
 
@@ -715,12 +695,7 @@ function watchAdForCoins() {
   if (!ysdk) { showStatus("Реклама недоступна"); setTimeout(() => showStatus(""), 2000); return; }
   ysdk.adv.showRewardedVideo({
     callbacks: {
-      onRewarded: () => {
-        playerData.coins += 100;
-        saveData();
-        showStatus("+100 монет!");
-        setTimeout(() => showStatus(""), 2000);
-      },
+      onRewarded: () => { playerData.coins += 100; saveData(); showStatus("+100 монет!"); setTimeout(() => showStatus(""), 2000); },
       onError: () => {}
     }
   });
@@ -733,22 +708,18 @@ function watchAdForCoins() {
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("startBtn").onclick = () => {
     gameScore = [0, 0];
-    startGame();
-  };
-  document.getElementById("nextRound").onclick = () => {
-    document.getElementById("roundResult").style.display = "none";
+    jcHolderGlobal = -1;
     startGame();
   };
   document.getElementById("restart").onclick = () => {
     gameScore = [0, 0];
+    jcHolderGlobal = -1;
     document.getElementById("result").style.display = "none";
     startGame();
   };
   document.getElementById("rewardAd").onclick = watchAdForCoins;
-  document.getElementById("shopBtn").onclick = () => { renderShop(); openShop(); };
+  document.getElementById("shopBtn").onclick = openShop;
   document.getElementById("shopClose").onclick = closeShop;
 
-  applySkin();
-  updateHUD();
-  renderGameScore();
+  applySkin(); updateHUD(); renderGameScore();
 });

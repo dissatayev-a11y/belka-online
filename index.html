@@ -113,6 +113,10 @@ body {
   width: 100%;
   text-align: center;
   z-index: 5;
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: center;
+  align-items: flex-end;
 }
 
 .card {
@@ -291,7 +295,7 @@ body {
   <!-- Статус -->
   <div id="status"></div>
 
-  <!-- Результат партии -->
+
   <div class="overlay" id="roundResult">
     <div class="overlay-title" id="roundResultText"></div>
     <div class="overlay-sub" id="roundScoreText"></div>
